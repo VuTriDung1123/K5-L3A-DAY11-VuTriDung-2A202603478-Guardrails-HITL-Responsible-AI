@@ -6,6 +6,7 @@ You may use Google ADK plugins, LangGraph, NeMo, or pure Python.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from pathlib import Path
@@ -132,7 +133,37 @@ async def _run_tracked_query(
     out_blk_before = output_guard.blocked_count if output_guard else 0
 
     audit.record_input(user_id=user_id, text=query, request_id=request_id)
-    response, _ = await chat_with_agent(agent, runner, query)
+    response = ""
+    for attempt in range(4):
+        rl_len_before = (
+            len(rate_limiter.user_windows.get(user_id, ()))
+            if rate_limiter
+            else 0
+        )
+        rl_total_before = rate_limiter.total_count if rate_limiter else 0
+        in_total_before = input_guard.total_count if input_guard else 0
+        try:
+            response, _ = await chat_with_agent(agent, runner, query)
+            break
+        except Exception as exc:
+            err_msg = f"{type(exc).__name__}: {exc}".lower()
+            is_transient = (
+                "429" in err_msg
+                or "503" in err_msg
+                or "ratelimit" in err_msg
+                or "unavailable" in err_msg
+            )
+            if not is_transient or attempt == 3:
+                raise
+            if rate_limiter is not None:
+                win = rate_limiter.user_windows.get(user_id)
+                if win and len(win) > rl_len_before:
+                    win.pop()
+                rate_limiter.total_count = rl_total_before
+            if input_guard is not None:
+                input_guard.total_count = in_total_before
+            await asyncio.sleep(3 * (attempt + 1))
+
     response = response or ""
 
     rate_limited = bool(rate_limiter and rate_limiter.blocked_count > rl_before)
@@ -242,6 +273,7 @@ async def run_assignment_suite(pipeline) -> dict:
             burst_blocked += 1
         else:
             burst_passed += 1
+            await asyncio.sleep(1.0)
 
     results = {
         "framework": "google-adk",
