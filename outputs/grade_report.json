@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-19T08:07:56.124616+00:00",
+  "generated_at": "2026-11-19T08:13:06.219314+00:00",
   "submission_dir": "D:\\VINUNI\\Labs\\Day11\\K5-L3A-VuTriDung-2A202603478-Guardrails-HITL-Responsible-AI",
   "technical_failure": false,
   "packaging": {
@@ -47,7 +47,7 @@
   },
   "public_tests": {
     "returncode": 0,
-    "stdout": "..........                                                               [100%]\n10 passed in 1.03s\n",
+    "stdout": "..........                                                               [100%]\n10 passed in 1.07s\n",
     "stderr": "",
     "technical_failure": false
   },
